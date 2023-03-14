@@ -46,6 +46,9 @@ provider "aws" {
 - Nodes Groups
 - Node pools auto scaling
 - Policy and roles to cluster and nodes groups
+- Autoscaler configuration
+- Addons
+- AWS auth manager
 - Network creation or use of existing 
 
 ## Usage exemples
@@ -107,8 +110,19 @@ module "eks_compute_dev" {
 | eks_service_ipv4_cidr | `string` | `172.20.0.0/16` | no | EKS network config CIDR, ex: 10.100.0.0/16 or 172.20.0.0/16 | `-` |
 | ou_name | `string` | `no` | no | Organization unit name | `-` |
 | tags | `map(any)` | `{}` | no | Tags to EKS cluster | `-` |
-| eks_default_tags | `map(any)` | `{object}` | no | EKS default tags | `-`|
-| eks_timeouts | `map(object)` | `{object}` | no | Define cluster timeouts | `-`|
+| eks_default_tags | `map(any)` | `object` | no | EKS default tags | `-`|
+| eks_timeouts | `map(object)` | `object` | no | Define cluster timeouts | `-`|
+| use_tags_default | `bool` | `true` | no | If true will be use the tags default | `*`true<br> `*`false |
+| tags_autoscaler | `map(any)` | `object` | no | Tags to autocaler policy | `-`|
+| manage_aws_auth | `bool` | `true` | no | If true will be management aws auth, else will be create the basic access to user the created the cluster | `*`true<br> `*`false |
+| make_policy_role_provider_autoscaler | `bool` | `true` | no | If true will be create a policy, role and identity provider to allow autocaler on cluster | `*`true<br> `*`false |
+| make_role_ebs_csi_driver | `bool` | `true` | no | If true will be create a role to allow EBS CSI driver on cluster | `*`true<br> `*`false |
+| eks_addons | `list(object)` | `[]` | no | List with additional addons to enable on cluster | `-`|
+| map_users | `list(object)` | `[]` | no | Additional IAM users to add to the aws-auth configmap | `-`|
+| map_roles | `list(object)` | `[]` | no | Additional IAM roles to add to the aws-auth configmap | `-`|
+| mapAccounts | `list(string)` | `[]` | no | Additional AWS account numbers to add to the aws-auth configmap | `-`|
+| identity_provider_audiences | `list(string)` | `["sts.amazonaws.com"]` | no | List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com | `-`|
+| cluster_autoscaler_policy | `list(object)` | `object` | no | Cluster autoscaler policy | `-`|
 
 * Examples of object populated by default in the eks_default_tags variable
 ```hcl
@@ -147,6 +161,115 @@ variable "eks_timeouts" {
 }
 ```
 
+* Examples to eks_addons variable
+```hcl
+variable "eks_addons" {
+  description = "List with additional addons to enable on cluster"
+  type = list(object({
+    addon_name               = string
+    resolve_conflicts        = optional(string)
+    service_account_role_arn = optional(string)
+    addon_version            = optional(string)
+    tags                     = optional(any)
+  }))
+  default = [
+    {
+      cluster_name             = var.cluster_name
+      addon_name               = "aws-ebs-csi-driver"
+      resolve_conflicts        = "OVERWRITE"
+    }
+  ]
+}
+```
+
+* Examples to map_users variable
+```hcl
+variable "map_users" {
+  description = "Additional IAM users to add to the aws-auth configmap"
+  type = list(object({
+    userarn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = [
+    {
+      userarn  = var.user_arn
+      username = var.user_name
+      groups   = ["system:masters"]
+    }
+  ]
+}
+```
+
+* Examples to map_roles variable
+```hcl
+variable "map_roles" {
+  description = "Additional IAM roles to add to the aws-auth configmap"
+  type = list(object({
+    rolearn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = []
+}
+```
+
+* Examples to mapAccounts variable
+```hcl
+variable "mapAccounts" {
+  description = "Additional AWS account numbers to add to the aws-auth configmap"
+  type        = list(string)
+  default     = [
+    "123456789"
+  ]
+}
+```
+
+* Examples to identity_provider_audiences variable
+```hcl
+variable "identity_provider_audiences" {
+  description = "List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com"
+  type        = list(string)
+  default     = ["sts.amazonaws.com"]
+}
+```
+
+* Examples to cluster_autoscaler_policy variable
+```hcl
+variable "cluster_autoscaler_policy" {
+  description = "Cluster autoscaler policy"
+  type = object({
+    name        = string
+    policy      = any
+    path        = optional(string)
+    description = optional(string)
+  })
+  default = {
+    name        = "AmazonEKSClusterAutoscalerPolicy"
+    description = "Policy to autoscaling on EKS."
+    policy = {
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Action" : [
+            "autoscaling:DescribeAutoScalingGroups",
+            "autoscaling:DescribeAutoScalingInstances",
+            "autoscaling:DescribeLaunchConfigurations",
+            "autoscaling:DescribeTags",
+            "autoscaling:SetDesiredCapacity",
+            "autoscaling:TerminateInstanceInAutoScalingGroup",
+            "ec2:DescribeLaunchTemplateVersions"
+          ],
+          "Resource" : "*",
+          "Effect" : "Allow"
+        }
+      ]
+    }
+  }
+}
+```
+
+
 ## Network Variables
 
 | Name | Type | Default | Required | Description | Options |
@@ -155,7 +278,7 @@ variable "eks_timeouts" {
 | public_subnets | `list(object)` | `object` | no | Define the public subnets configuration to new network | `-` |
 | private_subnets | `list(object)` | `object` | no | Define the private subnets configuration to new network | `-` |
 
-* Examples of object populated by default in the eks_default_tags variable, if variable make_new_network set true
+* Examples of object populated by default in the public_subnets variable, if variable make_new_network set true
 ```hcl
 variable "public_subnets" {
   description = "Define the public subnets configuration to new network"
@@ -175,7 +298,7 @@ variable "public_subnets" {
   ]
 }
 ```
-* Examples of object populated by default in the eks_timeouts variable, if variable make_new_network set true
+* Examples of object populated by default in the private_subnets variable, if variable make_new_network set true
 ```hcl
 variable "private_subnets" {
   description = "Define the private subnets configuration to new network"
@@ -375,7 +498,6 @@ variable "node_pools" {
 | [aws_cloudwatch_log_group.create_cloudwatch_log_group](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_security_group.create_sec_group_eks_internal](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
 | [aws_eks_node_group.create_eks_nodes_groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group) | resource |
-
 | [aws_iam_role.create_eks_cluster_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_eks_cluster_policy_on_eks_cluste_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_eks_service_policy_on_eks_cluste_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
@@ -389,6 +511,15 @@ variable "node_pools" {
 | [aws_cloudwatch_metric_alarm.create_metric_cpu_up_alarm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
 | [aws_autoscaling_policy.create_scaling_cpu_down_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_policy) | resource |
 | [aws_cloudwatch_metric_alarm.create_metric_cpu_down_alarm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
+| [aws_iam_policy.create_autoscaler_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_openid_connect_provider.create_oidc_identity_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_openid_connect_provider) | resource |
+| [aws_iam_role.create_autoscaler_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.create_attach_autoscaler_role_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.create_ebs_management_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_eks_addon.create_ebs_addon](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
+| [aws_eks_addon.create_others_addons](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
+| [kubernetes_config_map_v1_data.aws_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data) | resource |
+
 
 ## Outputs
 
@@ -415,3 +546,9 @@ variable "node_pools" {
 | `scaling_cpu_down_policy` | All informations of the EKS scaling CPU down policy |
 | `metric_cpu_up_alarm` | All informations of the EKS metric CPU up cloudwatch alarm |
 | `metric_cpu_down_alarm` | All informations of the EKS metric CPU down cloudwatch alarm |
+| `autoscaler_policy` | Policy to autoscaler |
+| `oidc_identity_provider` | OIDC identity provider |
+| `autoscaler_role` | Role to autoscaler |
+| `ebs_management_role` | Role to EBS managment |
+| `eks_addons` | EKS addons |
+| `aws_auth` | AWS authorization on cluster |

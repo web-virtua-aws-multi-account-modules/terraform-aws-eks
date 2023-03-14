@@ -251,3 +251,112 @@ variable "default_cpu_scaling_configuration" {
     scale_down_remove     = -1
   }
 }
+
+# ----------------------------------------------------------------#
+# Permissions
+# ----------------------------------------------------------------#
+variable "use_tags_default" {
+  description = "If true will be use the tags default"
+  type        = bool
+  default     = true
+}
+
+variable "tags_autoscaler" {
+  description = "Tags to autocaler policy"
+  type        = map(any)
+  default     = {}
+}
+
+variable "manage_aws_auth" {
+  description = "If true will be management aws auth, else will be create the basic access to user the created the cluster"
+  type        = bool
+  default     = true
+}
+
+variable "make_policy_role_provider_autoscaler" {
+  description = "If true will be create a policy, role and identity provider to allow autocaler on cluster"
+  type        = bool
+  default     = true
+}
+
+variable "make_role_ebs_csi_driver" {
+  description = "If true will be create a role to allow EBS CSI driver on cluster"
+  type        = bool
+  default     = true
+}
+
+variable "eks_addons" {
+  description = "List with additional addons to enable on cluster"
+  type = list(object({
+    addon_name               = string
+    resolve_conflicts        = optional(string)
+    service_account_role_arn = optional(string)
+    addon_version            = optional(string)
+    tags                     = optional(any)
+  }))
+  default = []
+}
+
+variable "map_users" {
+  description = "Additional IAM users to add to the aws-auth configmap"
+  type = list(object({
+    userarn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = []
+}
+
+variable "map_roles" {
+  description = "Additional IAM roles to add to the aws-auth configmap"
+  type = list(object({
+    rolearn  = string
+    username = string
+    groups   = list(string)
+  }))
+  default = []
+}
+
+variable "mapAccounts" {
+  description = "Additional AWS account numbers to add to the aws-auth configmap"
+  type        = list(string)
+  default     = []
+}
+
+variable "identity_provider_audiences" {
+  description = "List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com"
+  type        = list(string)
+  default     = ["sts.amazonaws.com"]
+}
+
+variable "cluster_autoscaler_policy" {
+  description = "Cluster autoscaler policy"
+  type = object({
+    name        = string
+    policy      = any
+    path        = optional(string)
+    description = optional(string)
+  })
+  default = {
+    name        = "AmazonEKSClusterAutoscalerPolicy"
+    description = "Policy to autoscaling on EKS."
+    policy = {
+      "Version" : "2012-10-17",
+      "Statement" : [
+        {
+          "Action" : [
+            "autoscaling:DescribeAutoScalingGroups",
+            "autoscaling:DescribeAutoScalingInstances",
+            "autoscaling:DescribeLaunchConfigurations",
+            "autoscaling:DescribeTags",
+            "autoscaling:SetDesiredCapacity",
+            "autoscaling:TerminateInstanceInAutoScalingGroup",
+            "ec2:DescribeLaunchTemplateVersions"
+          ],
+          "Resource" : "*",
+          "Effect" : "Allow"
+        }
+      ]
+    }
+  }
+}

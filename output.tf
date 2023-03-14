@@ -98,3 +98,30 @@ output "metric_cpu_up_alarm" {
 output "metric_cpu_down_alarm" {
   value = aws_cloudwatch_metric_alarm.create_metric_cpu_down_alarm
 }
+
+# ----------------------------------------------------------------#
+# Autoscaler, EBS Driver and User Managment
+# ----------------------------------------------------------------#
+output "autoscaler_policy" {
+  value = aws_iam_policy.create_autoscaler_policy
+}
+
+output "oidc_identity_provider" {
+  value = aws_iam_openid_connect_provider.create_oidc_identity_provider
+}
+
+output "autoscaler_role" {
+  value = aws_iam_role.create_autoscaler_role
+}
+
+output "ebs_management_role" {
+  value = aws_iam_role.create_ebs_management_role
+}
+
+output "eks_addons" {
+  value = concat(aws_eks_addon.create_ebs_addon, aws_eks_addon.create_others_addons)
+}
+
+output "aws_auth" {
+  value = kubernetes_config_map_v1_data.aws_auth
+}
