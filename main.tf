@@ -1,4 +1,19 @@
-
+locals {
+  eks_default_tags = {
+    Name                                            = var.cluster_name
+    tf                                              = var.cluster_name
+    Terraform                                       = true
+    Scost                                           = var.cluster_environment
+    Environment                                     = var.cluster_environment
+    "eks:cluster-name"                              = var.cluster_name
+    "eks:nodegroup-name"                            = var.cluster_name
+    "k8s.io/cluster-autoscaler/enabled"             = true
+    "k8s.io/cluster-autoscaler/${var.cluster_name}" = "owned"
+    "kubernetes.io/cluster/${var.cluster_name}"     = "owned"
+    "kubernetes.io/cluster/${var.cluster_name}"     = "shared"
+    "tf-ou"                                         = var.ou_name
+  }
+}
 resource "aws_eks_cluster" "create_eks_cluster" {
   name                      = var.cluster_name
   version                   = var.k8s_version
@@ -24,7 +39,7 @@ resource "aws_eks_cluster" "create_eks_cluster" {
     service_ipv4_cidr = var.eks_service_ipv4_cidr
   }
 
-  tags = merge(var.tags, var.use_eks_default_tags ? merge(var.eks_default_tags, { "tf-ou" = var.ou_name }) : {})
+  tags = merge(var.tags, var.use_eks_default_tags ? local.eks_default_tags : {})
 
   depends_on = [
     aws_iam_role.create_eks_cluster_role

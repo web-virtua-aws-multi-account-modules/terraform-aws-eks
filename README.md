@@ -98,6 +98,7 @@ module "eks_compute_dev" {
 | subnet_ids | `list(string)` | `null` | no | List with subnets IDs to cluster, It's required if make_new_network set false | `-` |
 | security_groups_ids | `list(string)` | `null` | no | List with security groups IDs to cluster | `-`|
 | k8s_version | `string` | `1.24` | no | Kuberntes version | `-` |
+| cluster_environment | `string` | `prod` | no | Cluster environment, ex: prod, dev... | `-` |
 | key_pair_name_ssh_nodes_access | `string` | `null` | no | Key pair name to SSH nodes access | `-` |
 | security_groups_ids_ssh_nodes_access | `list(string)` | `null` | no | Security groups ID's to access SSH | `-`|
 | use_eks_default_tags | `bool` | `true` | no | If use EKS default tags | `*`true<br> `*`false |
@@ -110,7 +111,6 @@ module "eks_compute_dev" {
 | eks_service_ipv4_cidr | `string` | `172.20.0.0/16` | no | EKS network config CIDR, ex: 10.100.0.0/16 or 172.20.0.0/16 | `-` |
 | ou_name | `string` | `no` | no | Organization unit name | `-` |
 | tags | `map(any)` | `{}` | no | Tags to EKS cluster | `-` |
-| eks_default_tags | `map(any)` | `object` | no | EKS default tags | `-`|
 | eks_timeouts | `map(object)` | `object` | no | Define cluster timeouts | `-`|
 | use_tags_default | `bool` | `true` | no | If true will be use the tags default | `*`true<br> `*`false |
 | tags_autoscaler | `map(any)` | `object` | no | Tags to autocaler policy | `-`|
@@ -124,26 +124,6 @@ module "eks_compute_dev" {
 | identity_provider_audiences | `list(string)` | `["sts.amazonaws.com"]` | no | List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com | `-`|
 | cluster_autoscaler_policy | `list(object)` | `object` | no | Cluster autoscaler policy | `-`|
 
-* Examples of object populated by default in the eks_default_tags variable
-```hcl
-variable "eks_default_tags" {
-  description = "EKS default tags"
-  type        = map(any)
-  default = {
-    Name                                       = "tf-cluster-k8s"
-    tf                                         = "tf-cluster-k8s"
-    Scost                                      = "prod"
-    Terraform                                  = true
-    Environment                                = "prod"
-    "eks:cluster-name"                         = "tf-cluster-k8s"
-    "eks:nodegroup-name"                       = "tf-cluster-k8s"
-    "k8s.io/cluster-autoscaler/enabled"        = true
-    "k8s.io/cluster-autoscaler/tf-cluster-k8s" = "owned"
-    "kubernetes.io/cluster/tf-cluster-k8s"     = "owned"
-    "kubernetes.io/cluster/tf-cluster-k8s"     = "shared"
-  }
-}
-```
 * Examples of object populated by default in the eks_timeouts variable
 ```hcl
 variable "eks_timeouts" {
@@ -519,6 +499,7 @@ variable "node_pools" {
 | [aws_eks_addon.create_ebs_addon](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
 | [aws_eks_addon.create_others_addons](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
 | [kubernetes_config_map_v1_data.aws_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data) | resource |
+| [aws_autoscaling_group_tag.create_nodes_autoscaler_label_tags](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group_tag) | resource |
 
 
 ## Outputs
@@ -552,3 +533,4 @@ variable "node_pools" {
 | `ebs_management_role` | Role to EBS managment |
 | `eks_addons` | EKS addons |
 | `aws_auth` | AWS authorization on cluster |
+| `nodes_autoscaler_label_tags` | Nodes autoscaler label tags to VMs |

@@ -103,24 +103,6 @@ variable "tags" {
   default     = {}
 }
 
-variable "eks_default_tags" {
-  description = "EKS default tags"
-  type        = map(any)
-  default = {
-    Name                                       = "tf-cluster-k8s"
-    tf                                         = "tf-cluster-k8s"
-    Scost                                      = "prod"
-    Terraform                                  = true
-    Environment                                = "prod"
-    "eks:cluster-name"                         = "tf-cluster-k8s"
-    "eks:nodegroup-name"                       = "tf-cluster-k8s"
-    "k8s.io/cluster-autoscaler/enabled"        = true
-    "k8s.io/cluster-autoscaler/tf-cluster-k8s" = "owned"
-    "kubernetes.io/cluster/tf-cluster-k8s"     = "owned"
-    "kubernetes.io/cluster/tf-cluster-k8s"     = "shared"
-  }
-}
-
 variable "eks_timeouts" {
   description = "Define cluster timeouts"
   type = object({
@@ -133,6 +115,12 @@ variable "eks_timeouts" {
     update = null
     delete = null
   }
+}
+
+variable "cluster_environment" {
+  description = "Cluster environment, ex: prod, dev..."
+  type = string
+  default = "prod"
 }
 
 # ----------------------------------------------------------------#

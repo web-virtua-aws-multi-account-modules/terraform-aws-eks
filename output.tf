@@ -63,6 +63,10 @@ output "eks_nodes_groups" {
   value = aws_eks_node_group.create_eks_nodes_groups
 }
 
+output "nodes_autoscaler_label_tags" {
+  value = aws_autoscaling_group_tag.create_nodes_autoscaler_label_tags
+}
+
 # ----------------------------------------------------------------#
 # IAM
 # ----------------------------------------------------------------#
