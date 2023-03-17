@@ -341,6 +341,6 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
       ))
     )
     mapUsers    = yamlencode(distinct(var.map_users))
-    mapAccounts = yamlencode(distinct(var.mapAccounts))
+    mapAccounts = yamlencode(distinct(var.map_accounts))
   }
 }

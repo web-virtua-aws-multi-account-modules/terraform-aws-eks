@@ -14,6 +14,7 @@ locals {
     "tf-ou"                                         = var.ou_name
   }
 }
+
 resource "aws_eks_cluster" "create_eks_cluster" {
   name                      = var.cluster_name
   version                   = var.k8s_version

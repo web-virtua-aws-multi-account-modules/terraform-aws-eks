@@ -52,10 +52,15 @@ provider "aws" {
 - Network creation or use of existing 
 
 ## Usage exemples
+* PS: This module implements all the necessary settings to autoscale and use EBS volumes, these settings may not be implemented if they are not going to be used, for that it is only necessary to set the variables to false, how to do this can be seen in the variable's documentation.
 
+* For the autoscaler to actually happen, it will still need some settings in a .yaml file, this file will have the final settings needed for the scalar cluster, the core of the file is in the url below and will need to be changed according to the documentation.
+URL file: https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover
+
+* Full documentation url: 
+https://docs.aws.amazon.com/pt_br/eks/latest/userguide/cluster-autoscaler.html
 
 ### Create cluster with existing network
-* OBS: 
 
 ```hcl
 module "eks_compute_dev" {
@@ -69,6 +74,42 @@ module "eks_compute_dev" {
 
   providers = {
     aws = aws.alias_profile_b
+  }
+}
+```
+
+### Create cluster with existing network and managment users and roles RBAC
+
+```hcl
+module "eks_compute_dev" {
+  source           = "web-virtua-aws-multi-account-modules/eks/aws"
+  cluster_name     = "tf-cluster-k8s"
+  k8s_version      = "1.24"
+  vpc_id           = var.vpc_id
+  subnet_ids       = var.privete_subnets_ids
+  node_pools       = var.node_pools
+  ou_name          = var.ous.sso
+
+  map_users = [
+    {
+      userarn  = "arn:aws:iam::123456789:user/user.name"
+      username = "user.name"
+      groups   = ["system:masters"]
+    },
+  ]
+
+  map_roles = [
+    {
+      rolearn  = "arn:aws:iam::123456789:role/role.name"
+      username = "role.name"
+      groups = [
+        "system:masters"
+      ]
+    }
+  ]
+
+  providers = {
+    aws = aws.alias_profile_a
   }
 }
 ```
@@ -120,7 +161,7 @@ module "eks_compute_dev" {
 | eks_addons | `list(object)` | `[]` | no | List with additional addons to enable on cluster | `-`|
 | map_users | `list(object)` | `[]` | no | Additional IAM users to add to the aws-auth configmap | `-`|
 | map_roles | `list(object)` | `[]` | no | Additional IAM roles to add to the aws-auth configmap | `-`|
-| mapAccounts | `list(string)` | `[]` | no | Additional AWS account numbers to add to the aws-auth configmap | `-`|
+| map_accounts | `list(string)` | `[]` | no | Additional AWS account numbers to add to the aws-auth configmap | `-`|
 | identity_provider_audiences | `list(string)` | `["sts.amazonaws.com"]` | no | List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com | `-`|
 | cluster_autoscaler_policy | `list(object)` | `object` | no | Cluster autoscaler policy | `-`|
 
@@ -190,13 +231,21 @@ variable "map_roles" {
     username = string
     groups   = list(string)
   }))
-  default = []
+  default = [
+    {
+      rolearn  = "arn:aws:iam::123456789:role/role.name"
+      username = "role.name"
+      groups = [
+        "system:masters"
+      ]
+    }
+  ]
 }
 ```
 
-* Examples to mapAccounts variable
+* Examples to map_accounts variable
 ```hcl
-variable "mapAccounts" {
+variable "map_accounts" {
   description = "Additional AWS account numbers to add to the aws-auth configmap"
   type        = list(string)
   default     = [
