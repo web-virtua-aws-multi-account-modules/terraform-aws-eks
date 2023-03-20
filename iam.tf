@@ -37,7 +37,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_eks_service_policy_on_e
 resource "aws_iam_policy" "create_lb_controller_policy" {
   name        = "${var.cluster_name}-lb-controller-policy"
   path        = "/"
-  description = "AWSLoadBalancerControllerIAMPolicy"
+  description = "Policy to controller AWS loadbalancer IAM policy"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -192,8 +192,8 @@ locals {
   }
 
   tags_identity_provider = {
-    "Name"        = "${var.cluster_name}-eks-irsa"
-    "tf-provider" = "${var.cluster_name}-eks-irsa"
+    "Name"        = "${var.cluster_name}-eks-oidc"
+    "tf-provider" = "${var.cluster_name}-eks-oidc"
     "tf-ou"       = var.ou_name
   }
 }
@@ -224,7 +224,7 @@ resource "aws_iam_openid_connect_provider" "create_oidc_identity_provider" {
 resource "aws_iam_role" "create_autoscaler_role" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name = "AmazonEKSClusterAutoscalerRole"
+  name = "tf-amazon-eks-cluster-autoscaler-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -254,7 +254,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_autoscaler_role_policy"
 resource "aws_iam_role" "create_ebs_management_role" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
-  name = "AmazonEKSClusterEBSCSIDriverRole"
+  name = "tf-amazon-eks-cluster-ebs-csi-driver-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -288,7 +288,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_ebs_role_policy" {
 resource "aws_eks_addon" "create_ebs_addon" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
-  cluster_name             = var.cluster_name
+  cluster_name             = aws_eks_cluster.create_eks_cluster.name
   addon_name               = "aws-ebs-csi-driver"
   resolve_conflicts        = "OVERWRITE"
   service_account_role_arn = aws_iam_role.create_ebs_management_role[0].arn
@@ -297,7 +297,7 @@ resource "aws_eks_addon" "create_ebs_addon" {
 resource "aws_eks_addon" "create_others_addons" {
   count = length(var.eks_addons)
 
-  cluster_name             = var.cluster_name
+  cluster_name             = aws_eks_cluster.create_eks_cluster.name
   addon_name               = var.eks_addons[count.index].addon_name
   resolve_conflicts        = var.eks_addons[count.index].resolve_conflicts
   service_account_role_arn = var.eks_addons[count.index].service_account_role_arn
@@ -343,4 +343,8 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
     mapUsers    = yamlencode(distinct(var.map_users))
     mapAccounts = yamlencode(distinct(var.map_accounts))
   }
+
+  depends_on = [
+    aws_eks_node_group.create_eks_nodes_groups
+  ]
 }

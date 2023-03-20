@@ -1,17 +1,3 @@
-locals {
-  autoscaling_groups = flatten([
-    for nodes_group in try(aws_eks_node_group.create_eks_nodes_groups, []) : [
-      for resource in nodes_group.resources != null ? nodes_group.resources : [] : [
-        for autoscaling_group in resource.autoscaling_groups != null ? resource.autoscaling_groups : [] : {
-          asg_name        = autoscaling_group.name
-          node_group_name = nodes_group.node_group_name
-          node_group_tag  = substr(nodes_group.node_group_name, 0, 3) == "tf-" ? substr(nodes_group.node_group_name, 3, length(nodes_group.node_group_name) - 1) : nodes_group.node_group_name
-        }
-      ]
-    ]
-  ])
-}
-
 resource "aws_eks_node_group" "create_eks_nodes_groups" {
   count                = length(var.node_pools)
   cluster_name         = aws_eks_cluster.create_eks_cluster.name
@@ -66,13 +52,25 @@ resource "aws_eks_node_group" "create_eks_nodes_groups" {
 }
 
 resource "aws_autoscaling_group_tag" "create_nodes_autoscaler_label_tags" {
-  count = length(local.autoscaling_groups)
+  for_each = {
+    for index, nodes_group in flatten([
+      for nodes_group in try(aws_eks_node_group.create_eks_nodes_groups, []) : [
+        for resource in nodes_group.resources != null ? nodes_group.resources : [] : [
+          for autoscaling_group in resource.autoscaling_groups != null ? resource.autoscaling_groups : [] : {
+            asg_name        = autoscaling_group.name
+            node_group_name = nodes_group.node_group_name
+            node_group_tag  = substr(nodes_group.node_group_name, 0, 3) == "tf-" ? substr(nodes_group.node_group_name, 3, length(nodes_group.node_group_name) - 1) : nodes_group.node_group_name
+          }
+        ]
+      ]
+    ]) : index => nodes_group
+  }
 
-  autoscaling_group_name = local.autoscaling_groups[count.index].asg_name
+  autoscaling_group_name = each.value.asg_name
 
   tag {
-    key = "Name"
-    value = "${var.cluster_name}-${local.autoscaling_groups[count.index].node_group_tag}"
+    key   = "Name"
+    value = "${var.cluster_name}-${each.value.node_group_tag}"
 
     propagate_at_launch = true
   }
