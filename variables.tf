@@ -326,7 +326,7 @@ variable "cluster_autoscaler_policy" {
     description = optional(string)
   })
   default = {
-    name        = "AmazonEKSClusterAutoscalerPolicy"
+    name        = "tf-amazon-eks-cluster-autoscaler-policy"
     description = "Policy to autoscaling on EKS."
     policy = {
       "Version" : "2012-10-17",
