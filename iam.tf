@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "create_eks_cluster_role_policy" {
 }
 
 resource "aws_iam_role" "create_eks_cluster_role" {
-  name               = "${var.cluster_name}-eks-cluster-role"
+  name               = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-eks-cluster-role"
   assume_role_policy = data.aws_iam_policy_document.create_eks_cluster_role_policy.json
 }
 
@@ -35,7 +35,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_eks_service_policy_on_e
 }
 
 resource "aws_iam_policy" "create_lb_controller_policy" {
-  name        = "${var.cluster_name}-lb-controller-policy"
+  name        = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-lb-controller-policy"
   path        = "/"
   description = "Policy to controller AWS loadbalancer IAM policy"
 
@@ -162,7 +162,7 @@ data "aws_iam_policy_document" "create_eks_nodes_role_policy" {
 }
 
 resource "aws_iam_role" "create_eks_nodes_roles" {
-  name               = "${var.cluster_name}-eks-nodes-roles"
+  name               = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-eks-nodes-roles"
   assume_role_policy = data.aws_iam_policy_document.create_eks_nodes_role_policy.json
 }
 
@@ -201,7 +201,7 @@ locals {
 resource "aws_iam_policy" "create_autoscaler_policy" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name        = var.cluster_autoscaler_policy.name
+  name        = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_autoscaler_policy.name
   policy      = jsonencode(var.cluster_autoscaler_policy.policy)
   path        = try(var.cluster_autoscaler_policy.path, null)
   description = try(var.cluster_autoscaler_policy.description, null)
@@ -224,7 +224,7 @@ resource "aws_iam_openid_connect_provider" "create_oidc_identity_provider" {
 resource "aws_iam_role" "create_autoscaler_role" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name = "tf-amazon-eks-cluster-autoscaler-role"
+  name = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : "tf-amazon-eks-cluster-autoscaler-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -254,7 +254,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_autoscaler_role_policy"
 resource "aws_iam_role" "create_ebs_management_role" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
-  name = "tf-amazon-eks-cluster-ebs-csi-driver-role"
+  name = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : "tf-amazon-eks-cluster-ebs-csi-driver-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [

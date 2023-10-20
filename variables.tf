@@ -119,8 +119,8 @@ variable "eks_timeouts" {
 
 variable "cluster_environment" {
   description = "Cluster environment, ex: prod, dev..."
-  type = string
-  default = "prod"
+  type        = string
+  default     = "prod"
 }
 
 # ----------------------------------------------------------------#
@@ -243,6 +243,12 @@ variable "default_cpu_scaling_configuration" {
 # ----------------------------------------------------------------#
 # Permissions
 # ----------------------------------------------------------------#
+variable "role_policy_metrics_cusmized_name" {
+  description = "This variable is required if create more than one cluster in the same account, if defined will be used these name to roles, policies and resources names that must not has the same name"
+  type = string
+  default = null
+}
+
 variable "use_tags_default" {
   description = "If true will be use the tags default"
   type        = bool

@@ -49,13 +49,13 @@ resource "aws_eks_cluster" "create_eks_cluster" {
 
 resource "aws_cloudwatch_log_group" "create_cloudwatch_log_group" {
   count             = var.retention_cloudwatch_log_group > 0 ? 1 : 0
-  name              = "/aws/eks/${var.cluster_name}/${var.cluster_name}"
+  name              = "/aws/eks/${var.cluster_name}/${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}"
   retention_in_days = var.retention_cloudwatch_log_group
 }
 
 resource "aws_security_group" "create_sec_group_eks_internal" {
   count  = var.security_groups_ids == null ? 1 : 0
-  name   = "${var.cluster_name}-sec-group-eks-internal"
+  name   = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-sec-group-eks-internal"
   vpc_id = var.make_new_network ? module.create_vpc_full[0].vpc_id : var.vpc_id
 
   egress {
@@ -66,6 +66,6 @@ resource "aws_security_group" "create_sec_group_eks_internal" {
   }
 
   tags = {
-    Name = "${var.cluster_name}-sec-group-eks-internal"
+    Name = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-sec-group-eks-internal"
   }
 }
