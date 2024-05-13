@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "create_eks_cluster_role_policy" {
 }
 
 resource "aws_iam_role" "create_eks_cluster_role" {
-  name               = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-eks-cluster-role"
+  name               = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-eks-cluster-role" : var.cluster_name}-eks-cluster-role"
   assume_role_policy = data.aws_iam_policy_document.create_eks_cluster_role_policy.json
 }
 
@@ -35,7 +35,7 @@ resource "aws_iam_role_policy_attachment" "create_attach_eks_service_policy_on_e
 }
 
 resource "aws_iam_policy" "create_lb_controller_policy" {
-  name        = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-lb-controller-policy"
+  name        = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-lb-controller-policy" : var.cluster_name}-lb-controller-policy"
   path        = "/"
   description = "Policy to controller AWS loadbalancer IAM policy"
 
@@ -162,7 +162,7 @@ data "aws_iam_policy_document" "create_eks_nodes_role_policy" {
 }
 
 resource "aws_iam_role" "create_eks_nodes_roles" {
-  name               = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-eks-nodes-roles"
+  name               = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-eks-nodes-roles" : var.cluster_name}-eks-nodes-roles"
   assume_role_policy = data.aws_iam_policy_document.create_eks_nodes_role_policy.json
 }
 
@@ -201,7 +201,7 @@ locals {
 resource "aws_iam_policy" "create_autoscaler_policy" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name        = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_autoscaler_policy.name
+  name        = var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-autoscaler-policy" : var.cluster_autoscaler_policy.name
   policy      = jsonencode(var.cluster_autoscaler_policy.policy)
   path        = try(var.cluster_autoscaler_policy.path, null)
   description = try(var.cluster_autoscaler_policy.description, null)
@@ -224,7 +224,7 @@ resource "aws_iam_openid_connect_provider" "create_oidc_identity_provider" {
 resource "aws_iam_role" "create_autoscaler_role" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : "tf-amazon-eks-cluster-autoscaler-role"
+  name = var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-autoscaler-role" : "tf-amazon-eks-cluster-autoscaler-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -251,10 +251,61 @@ resource "aws_iam_role_policy_attachment" "create_attach_autoscaler_role_policy"
   role       = aws_iam_role.create_autoscaler_role[0].name
 }
 
+resource "aws_iam_policy" "create_desired_terminate_scaling_policy" {
+  count = var.make_policy_role_provider_autoscaler ? 1 : 0
+
+  name        = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-desired-term-scaling-policy" : var.cluster_name}-desired-term-scaling-policy"
+  path        = "/"
+  description = "Policy to set desired and terminate scaling IAM policy"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "autoscaling:SetDesiredCapacity",
+          "autoscaling:TerminateInstanceInAutoScalingGroup"
+        ],
+        "Resource" : "*",
+        "Condition" : {
+          "StringEquals" : {
+            "aws:ResourceTag/k8s.io/cluster-autoscaler/enabled" : "true",
+            "aws:ResourceTag/k8s.io/cluster-autoscaler/${var.cluster_name}" : "owned"
+          }
+        }
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "autoscaling:DescribeAutoScalingGroups",
+          "autoscaling:DescribeAutoScalingInstances",
+          "autoscaling:DescribeLaunchConfigurations",
+          "autoscaling:DescribeScalingActivities",
+          "autoscaling:DescribeTags",
+          "ec2:DescribeImages",
+          "ec2:DescribeInstanceTypes",
+          "ec2:DescribeLaunchTemplateVersions",
+          "ec2:GetInstanceTypesFromInstanceRequirements",
+          "eks:DescribeNodegroup"
+        ],
+        "Resource" : "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "create_attach_desired_terminate_scaler_policy_on_iam_autoscaler_role" {
+  count = var.make_policy_role_provider_autoscaler ? 1 : 0
+
+  policy_arn = aws_iam_policy.create_desired_terminate_scaling_policy[0].arn
+  role       = aws_iam_role.create_autoscaler_role[0].name
+}
+
 resource "aws_iam_role" "create_ebs_management_role" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
-  name = var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : "tf-amazon-eks-cluster-ebs-csi-driver-role"
+  name = var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-ebs-csi-driver-role" : "tf-amazon-eks-cluster-ebs-csi-driver-role"
   assume_role_policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [
@@ -288,35 +339,39 @@ resource "aws_iam_role_policy_attachment" "create_attach_ebs_role_policy" {
 resource "aws_eks_addon" "create_ebs_addon" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
-  cluster_name             = aws_eks_cluster.create_eks_cluster.name
-  addon_name               = "aws-ebs-csi-driver"
-  resolve_conflicts        = "OVERWRITE"
-  service_account_role_arn = aws_iam_role.create_ebs_management_role[0].arn
+  cluster_name                = aws_eks_cluster.create_eks_cluster.name
+  addon_name                  = "aws-ebs-csi-driver"
+  resolve_conflicts_on_update = "OVERWRITE"
+  service_account_role_arn    = aws_iam_role.create_ebs_management_role[0].arn
 }
 
 resource "aws_eks_addon" "create_others_addons" {
   count = length(var.eks_addons)
 
-  cluster_name             = aws_eks_cluster.create_eks_cluster.name
-  addon_name               = var.eks_addons[count.index].addon_name
-  resolve_conflicts        = var.eks_addons[count.index].resolve_conflicts
-  service_account_role_arn = var.eks_addons[count.index].service_account_role_arn
-  addon_version            = var.eks_addons[count.index].addon_version
-  tags                     = var.eks_addons[count.index].tags
+  cluster_name                = aws_eks_cluster.create_eks_cluster.name
+  addon_name                  = var.eks_addons[count.index].addon_name
+  resolve_conflicts_on_update = var.eks_addons[count.index].resolve_conflicts
+  service_account_role_arn    = var.eks_addons[count.index].service_account_role_arn
+  addon_version               = var.eks_addons[count.index].addon_version
+  tags                        = var.eks_addons[count.index].tags
 }
 
 data "aws_eks_cluster" "cluster" {
+  count = var.manage_aws_auth ? 1 : 0
+
   name = aws_eks_cluster.create_eks_cluster.id
 }
 
 data "aws_eks_cluster_auth" "cluster" {
+  count = var.manage_aws_auth ? 1 : 0
+
   name = aws_eks_cluster.create_eks_cluster.id
 }
 
 provider "kubernetes" {
-  host                   = data.aws_eks_cluster.cluster.endpoint
-  cluster_ca_certificate = base64decode(data.aws_eks_cluster.cluster.certificate_authority[0].data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
+  host                   = var.manage_aws_auth ? data.aws_eks_cluster.cluster[0].endpoint : ""
+  cluster_ca_certificate = var.manage_aws_auth ? base64decode(data.aws_eks_cluster.cluster[0].certificate_authority[0].data) : ""
+  token                  = var.manage_aws_auth ? data.aws_eks_cluster_auth.cluster[0].token : ""
 }
 
 resource "kubernetes_config_map_v1_data" "aws_auth" {

@@ -1,6 +1,10 @@
 # ----------------------------------------------------------------#
 # EKS cluster
 # ----------------------------------------------------------------#
+output "eks_cluster_id" {
+  value = aws_eks_cluster.create_eks_cluster.id
+}
+
 output "eks_cluster" {
   value = aws_eks_cluster.create_eks_cluster
 }
@@ -84,48 +88,32 @@ output "eks_nodes_roles" {
 }
 
 # ----------------------------------------------------------------#
-# Auto scaling
-# ----------------------------------------------------------------#
-
-output "scaling_cpu_up_policy" {
-  value = aws_autoscaling_policy.create_scaling_cpu_up_policy
-}
-
-output "scaling_cpu_down_policy" {
-  value = aws_autoscaling_policy.create_scaling_cpu_down_policy
-}
-
-output "metric_cpu_up_alarm" {
-  value = aws_cloudwatch_metric_alarm.create_metric_cpu_up_alarm
-}
-
-output "metric_cpu_down_alarm" {
-  value = aws_cloudwatch_metric_alarm.create_metric_cpu_down_alarm
-}
-
-# ----------------------------------------------------------------#
 # Autoscaler, EBS Driver and User Managment
 # ----------------------------------------------------------------#
 output "autoscaler_policy" {
-  value = aws_iam_policy.create_autoscaler_policy
+  value = try(aws_iam_policy.create_autoscaler_policy, null)
 }
 
 output "oidc_identity_provider" {
-  value = aws_iam_openid_connect_provider.create_oidc_identity_provider
+  value = try(aws_iam_openid_connect_provider.create_oidc_identity_provider, null)
 }
 
-output "autoscaler_role" {
-  value = aws_iam_role.create_autoscaler_role
+output "iam_autoscaler_role" {
+  value = try(aws_iam_role.create_autoscaler_role, null)
+}
+
+output "iam_autoscaler_role_arn" {
+  value = try(aws_iam_role.create_autoscaler_role[0].arn, null)
 }
 
 output "ebs_management_role" {
-  value = aws_iam_role.create_ebs_management_role
+  value = try(aws_iam_role.create_ebs_management_role, null)
 }
 
 output "eks_addons" {
-  value = concat(aws_eks_addon.create_ebs_addon, aws_eks_addon.create_others_addons)
+  value = try(concat(aws_eks_addon.create_ebs_addon, aws_eks_addon.create_others_addons), null)
 }
 
 output "aws_auth" {
-  value = kubernetes_config_map_v1_data.aws_auth
+  value = try(kubernetes_config_map_v1_data.aws_auth, null)
 }

@@ -12,6 +12,7 @@ locals {
     "kubernetes.io/cluster/${var.cluster_name}"     = "owned"
     "kubernetes.io/cluster/${var.cluster_name}"     = "shared"
     "tf-ou"                                         = var.ou_name
+    "karpenter.sh/discovery"                        = var.cluster_name
   }
 }
 
@@ -67,5 +68,7 @@ resource "aws_security_group" "create_sec_group_eks_internal" {
 
   tags = {
     Name = "${var.role_policy_metrics_cusmized_name != null ? var.role_policy_metrics_cusmized_name : var.cluster_name}-sec-group-eks-internal"
+    # Karpenter Autoscaler
+    "karpenter.sh/discovery" = var.cluster_name
   }
 }

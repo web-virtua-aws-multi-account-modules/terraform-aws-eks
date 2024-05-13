@@ -578,7 +578,8 @@ variable "node_pools" {
 | `metric_cpu_down_alarm` | All informations of the EKS metric CPU down cloudwatch alarm |
 | `autoscaler_policy` | Policy to autoscaler |
 | `oidc_identity_provider` | OIDC identity provider |
-| `autoscaler_role` | Role to autoscaler |
+| `iam_autoscaler_role` | Role to autoscaler |
+| `iam_autoscaler_role_arn` | Role ARN to autoscaler, this role will be used in autoscaler cluster configuration file |
 | `ebs_management_role` | Role to EBS managment |
 | `eks_addons` | EKS addons |
 | `aws_auth` | AWS authorization on cluster |
