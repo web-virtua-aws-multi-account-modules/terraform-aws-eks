@@ -329,10 +329,48 @@ data "aws_iam_policy" "get_data_ebs_csi_policy" {
   name = "AmazonEBSCSIDriverPolicy"
 }
 
+resource "aws_iam_policy" "create_fix_addon_ebs_csi_driver_policy" {
+  count = var.make_role_ebs_csi_driver ? 1 : 0
+
+  name        = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-aws-ebs-csi-driver-policy" : var.cluster_name}-aws-ebs-csi-driver-policy"
+  path        = "/"
+  description = "Policy to set desired and terminate scaling IAM policy"
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ec2:CreateSnapshot",
+          "ec2:AttachVolume",
+          "ec2:DeleteSnapshot",
+          "ec2:DetachVolume",
+          "ec2:ModifyVolume",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeInstances",
+          "ec2:DescribeSnapshots",
+          "ec2:DescribeTags",
+          "ec2:DescribeVolumes",
+          "ec2:DescribeVolumesModifications"
+        ],
+        "Resource" : "*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "create_attach_ebs_role_policy" {
   count = var.make_role_ebs_csi_driver ? 1 : 0
 
   policy_arn = data.aws_iam_policy.get_data_ebs_csi_policy.arn
+  role       = aws_iam_role.create_ebs_management_role[0].name
+}
+
+resource "aws_iam_role_policy_attachment" "create_attach_fix_addon_ebs_driver_role_policy" {
+  count = var.make_role_ebs_csi_driver ? 1 : 0
+
+  policy_arn = aws_iam_policy.create_fix_addon_ebs_csi_driver_policy[0].arn
   role       = aws_iam_role.create_ebs_management_role[0].name
 }
 
