@@ -279,6 +279,12 @@ variable "make_role_ebs_csi_driver" {
   default     = true
 }
 
+variable "ebs_addon_version" {
+  description = "Sets the EBS CSI driver addon version"
+  type = string
+  default = "v1.30.0-eksbuild.1"
+}
+
 variable "eks_addons" {
   description = "List with additional addons to enable on cluster"
   type = list(object({

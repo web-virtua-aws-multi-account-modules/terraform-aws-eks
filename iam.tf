@@ -381,6 +381,7 @@ resource "aws_eks_addon" "create_ebs_addon" {
   addon_name                  = "aws-ebs-csi-driver"
   resolve_conflicts_on_update = "OVERWRITE"
   service_account_role_arn    = aws_iam_role.create_ebs_management_role[0].arn
+  addon_version               = var.ebs_addon_version
 }
 
 resource "aws_eks_addon" "create_others_addons" {
