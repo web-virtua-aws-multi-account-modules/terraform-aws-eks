@@ -28,7 +28,7 @@ variable "security_groups_ids" {
 variable "k8s_version" {
   description = "Kuberntes version"
   type        = string
-  default     = "1.23"
+  default     = "1.35"
 }
 
 variable "key_pair_name_ssh_nodes_access" {
@@ -245,8 +245,8 @@ variable "default_cpu_scaling_configuration" {
 # ----------------------------------------------------------------#
 variable "role_policy_metrics_cusmized_name" {
   description = "This variable is required if create more than one cluster in the same account, if defined will be used these name to roles, policies and resources names that must not has the same name"
-  type = string
-  default = null
+  type        = string
+  default     = null
 }
 
 variable "use_tags_default" {
@@ -281,8 +281,8 @@ variable "make_role_ebs_csi_driver" {
 
 variable "ebs_addon_version" {
   description = "Sets the EBS CSI driver addon version"
-  type = string
-  default = "v1.30.0-eksbuild.1"
+  type        = string
+  default     = null
 }
 
 variable "eks_addons" {
@@ -329,34 +329,30 @@ variable "identity_provider_audiences" {
   default     = ["sts.amazonaws.com"]
 }
 
-variable "cluster_autoscaler_policy" {
-  description = "Cluster autoscaler policy"
-  type = object({
-    name        = string
-    policy      = any
-    path        = optional(string)
-    description = optional(string)
-  })
-  default = {
-    name        = "tf-amazon-eks-cluster-autoscaler-policy"
-    description = "Policy to autoscaling on EKS."
-    policy = {
-      "Version" : "2012-10-17",
-      "Statement" : [
-        {
-          "Action" : [
-            "autoscaling:DescribeAutoScalingGroups",
-            "autoscaling:DescribeAutoScalingInstances",
-            "autoscaling:DescribeLaunchConfigurations",
-            "autoscaling:DescribeTags",
-            "autoscaling:SetDesiredCapacity",
-            "autoscaling:TerminateInstanceInAutoScalingGroup",
-            "ec2:DescribeLaunchTemplateVersions"
-          ],
-          "Resource" : "*",
-          "Effect" : "Allow"
-        }
-      ]
-    }
-  }
+# ----------------------------------------------------------------#
+# Security
+# ----------------------------------------------------------------#
+
+variable "enable_kms_secrets" {
+  description = "If true, creates a KMS key to encrypt Kubernetes Secrets within the EKS cluster (CIS Benchmark Best Practice). Default is false."
+  type        = bool
+  default     = false
+}
+
+variable "kms_secrets_deletion_window" {
+  description = "Waiting period in days before the KMS key is deleted if enable_kms_secrets is true"
+  type        = number
+  default     = 7
+}
+
+variable "kms_key_administrators" {
+  description = "List of IAM ARNs to grant Administrator access to the KMS key"
+  type        = list(string)
+  default     = []
+}
+
+variable "kms_key_users" {
+  description = "List of IAM ARNs to grant Usage access to the KMS key (encrypt/decrypt)"
+  type        = list(string)
+  default     = []
 }

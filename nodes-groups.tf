@@ -10,7 +10,7 @@ resource "aws_eks_node_group" "create_eks_nodes_groups" {
   disk_size            = try(var.node_pools[count.index].disk_size, 20)
   instance_types       = try(var.node_pools[count.index].instance_types, ["t3a.small"])
   capacity_type        = try(var.node_pools[count.index].capacity_type, "ON_DEMAND")
-  ami_type             = try(var.node_pools[count.index].node_ami_type, "AL2_x86_64")
+  ami_type             = try(var.node_pools[count.index].node_ami_type, "AL2023_x86_64_STANDARD")
   release_version      = try(var.node_pools[count.index].node_ami_release_version, "")
 
   scaling_config {

@@ -16,6 +16,8 @@ locals {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_eks_cluster" "create_eks_cluster" {
   name                      = var.cluster_name
   version                   = var.k8s_version
@@ -30,6 +32,11 @@ resource "aws_eks_cluster" "create_eks_cluster" {
     security_group_ids      = var.security_groups_ids == null ? [aws_security_group.create_sec_group_eks_internal[0].id] : var.security_groups_ids
   }
 
+  access_config {
+    authentication_mode                         = "API"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
+
   timeouts {
     create = lookup(var.eks_timeouts, "create", null)
     update = lookup(var.eks_timeouts, "update", null)
@@ -41,11 +48,113 @@ resource "aws_eks_cluster" "create_eks_cluster" {
     service_ipv4_cidr = var.eks_service_ipv4_cidr
   }
 
+  dynamic "encryption_config" {
+    for_each = var.enable_kms_secrets ? [1] : []
+    content {
+      provider {
+        key_arn = aws_kms_key.eks_secrets[0].arn
+      }
+      resources = ["secrets"]
+    }
+  }
+
   tags = merge(var.tags, var.use_eks_default_tags ? local.eks_default_tags : {})
 
   depends_on = [
     aws_iam_role.create_eks_cluster_role
   ]
+}
+
+data "aws_iam_policy_document" "eks_secrets" {
+  count = var.enable_kms_secrets ? 1 : 0
+
+  statement {
+    sid    = "Enable IAM User Permissions"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "Allow access for EKS Service"
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.create_eks_cluster_role.arn]
+    }
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:DescribeKey"
+    ]
+    resources = ["*"]
+  }
+
+  dynamic "statement" {
+    for_each = length(var.kms_key_administrators) > 0 ? [1] : []
+    content {
+      sid    = "Allow access for Key Administrators"
+      effect = "Allow"
+      principals {
+        type        = "AWS"
+        identifiers = var.kms_key_administrators
+      }
+      actions = [
+        "kms:Create*",
+        "kms:Describe*",
+        "kms:Enable*",
+        "kms:List*",
+        "kms:Put*",
+        "kms:Update*",
+        "kms:Revoke*",
+        "kms:Disable*",
+        "kms:Get*",
+        "kms:Delete*",
+        "kms:TagResource",
+        "kms:UntagResource",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion"
+      ]
+      resources = ["*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = length(var.kms_key_users) > 0 ? [1] : []
+    content {
+      sid    = "Allow access for Key Users"
+      effect = "Allow"
+      principals {
+        type        = "AWS"
+        identifiers = var.kms_key_users
+      }
+      actions = [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey"
+      ]
+      resources = ["*"]
+    }
+  }
+}
+
+resource "aws_kms_key" "eks_secrets" {
+  count                   = var.enable_kms_secrets ? 1 : 0
+  description             = "KMS key to encrypt Kubernetes Secrets in ${var.cluster_name}"
+  enable_key_rotation     = true
+  deletion_window_in_days = var.kms_secrets_deletion_window
+
+  policy = try(data.aws_iam_policy_document.eks_secrets[0].json, null)
+
+  tags = merge(var.tags, var.use_eks_default_tags ? local.eks_default_tags : {})
 }
 
 resource "aws_cloudwatch_log_group" "create_cloudwatch_log_group" {

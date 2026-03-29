@@ -29,113 +29,16 @@ resource "aws_iam_role_policy_attachment" "create_attach_eks_cluster_policy_on_e
   role       = aws_iam_role.create_eks_cluster_role.name
 }
 
-resource "aws_iam_role_policy_attachment" "create_attach_eks_service_policy_on_eks_cluste_role" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSServicePolicy"
-  role       = aws_iam_role.create_eks_cluster_role.name
+
+data "http" "aws_load_balancer_controller_policy" {
+  url = "https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json"
 }
 
 resource "aws_iam_policy" "create_lb_controller_policy" {
   name        = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-lb-controller-policy" : var.cluster_name}-lb-controller-policy"
   path        = "/"
   description = "Policy to controller AWS loadbalancer IAM policy"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Resource = "*"
-        Action = [
-          "iam:CreateServiceLinkedRole",
-          "ec2:DescribeAccountAttributes",
-          "ec2:DescribeAddresses",
-          "ec2:DescribeInternetGateways",
-          "ec2:DescribeVpcs",
-          "ec2:DescribeSubnets",
-          "ec2:DescribeSecurityGroups",
-          "ec2:DescribeInstances",
-          "ec2:DescribeNetworkInterfaces",
-          "ec2:DescribeTags",
-          "ec2:GetCoipPoolUsage",
-          "ec2:DescribeCoipPools",
-          "elasticloadbalancing:DescribeLoadBalancers",
-          "elasticloadbalancing:DescribeLoadBalancerAttributes",
-          "elasticloadbalancing:DescribeListeners",
-          "elasticloadbalancing:DescribeListenerCertificates",
-          "elasticloadbalancing:DescribeSSLPolicies",
-          "elasticloadbalancing:DescribeRules",
-          "elasticloadbalancing:DescribeTargetGroups",
-          "elasticloadbalancing:DescribeTargetGroupAttributes",
-          "elasticloadbalancing:DescribeTargetHealth",
-          "elasticloadbalancing:DescribeTags"
-        ]
-      },
-      {
-        Effect   = "Allow"
-        Resource = "*"
-        Action = [
-          "cognito-idp:DescribeUserPoolClient",
-          "acm:ListCertificates",
-          "acm:DescribeCertificate",
-          "iam:ListServerCertificates",
-          "iam:GetServerCertificate",
-          "waf-regional:GetWebACL",
-          "waf-regional:GetWebACLForResource",
-          "waf-regional:AssociateWebACL",
-          "waf-regional:DisassociateWebACL",
-          "wafv2:GetWebACL",
-          "wafv2:GetWebACLForResource",
-          "wafv2:AssociateWebACL",
-          "wafv2:DisassociateWebACL",
-          "shield:GetSubscriptionState",
-          "shield:DescribeProtection",
-          "shield:CreateProtection",
-          "shield:DeleteProtection"
-        ]
-      },
-      {
-        Effect   = "Allow"
-        Resource = "*"
-        Action = [
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:RevokeSecurityGroupIngress",
-          "ec2:CreateSecurityGroup",
-          "ec2:CreateTags",
-          "ec2:DeleteTags",
-          "ec2:AuthorizeSecurityGroupIngress",
-          "ec2:RevokeSecurityGroupIngress",
-          "ec2:DeleteSecurityGroup"
-        ]
-      },
-      {
-        Effect   = "Allow"
-        Resource = "*"
-        Action = [
-          "elasticloadbalancing:CreateListener",
-          "elasticloadbalancing:DeleteListener",
-          "elasticloadbalancing:CreateRule",
-          "elasticloadbalancing:DeleteRule",
-          "elasticloadbalancing:AddTags",
-          "elasticloadbalancing:RemoveTags",
-          "elasticloadbalancing:ModifyLoadBalancerAttributes",
-          "elasticloadbalancing:SetIpAddressType",
-          "elasticloadbalancing:SetSecurityGroups",
-          "elasticloadbalancing:SetSubnets",
-          "elasticloadbalancing:DeleteLoadBalancer",
-          "elasticloadbalancing:ModifyTargetGroup",
-          "elasticloadbalancing:ModifyTargetGroupAttributes",
-          "elasticloadbalancing:DeleteTargetGroup",
-          "elasticloadbalancing:RegisterTargets",
-          "elasticloadbalancing:DeregisterTargets",
-          "elasticloadbalancing:SetWebAcl",
-          "elasticloadbalancing:ModifyListener",
-          "elasticloadbalancing:AddListenerCertificates",
-          "elasticloadbalancing:RemoveListenerCertificates",
-          "elasticloadbalancing:ModifyRule"
-        ]
-      },
-    ]
-  })
+  policy      = data.http.aws_load_balancer_controller_policy.response_body
 }
 
 resource "aws_iam_role_policy_attachment" "create_attach_lb_controller_policy_on_eks_cluste_role" {
@@ -198,15 +101,7 @@ locals {
   }
 }
 
-resource "aws_iam_policy" "create_autoscaler_policy" {
-  count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
-  name        = var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-autoscaler-policy" : var.cluster_autoscaler_policy.name
-  policy      = jsonencode(var.cluster_autoscaler_policy.policy)
-  path        = try(var.cluster_autoscaler_policy.path, null)
-  description = try(var.cluster_autoscaler_policy.description, null)
-  tags        = merge(var.tags_autoscaler, var.use_tags_default ? local.tags_autoscaler : {})
-}
 
 data "tls_certificate" "get_tls_url" {
   url = aws_eks_cluster.create_eks_cluster.identity[0].oidc[0].issuer
@@ -244,19 +139,13 @@ resource "aws_iam_role" "create_autoscaler_role" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "create_attach_autoscaler_role_policy" {
-  count = var.make_policy_role_provider_autoscaler ? 1 : 0
-
-  policy_arn = aws_iam_policy.create_autoscaler_policy[0].arn
-  role       = aws_iam_role.create_autoscaler_role[0].name
-}
-
 resource "aws_iam_policy" "create_desired_terminate_scaling_policy" {
   count = var.make_policy_role_provider_autoscaler ? 1 : 0
 
   name        = "${var.role_policy_metrics_cusmized_name != null ? "${var.role_policy_metrics_cusmized_name}-desired-term-scaling-policy" : var.cluster_name}-desired-term-scaling-policy"
   path        = "/"
   description = "Policy to set desired and terminate scaling IAM policy"
+  tags        = merge(var.tags_autoscaler, var.use_tags_default ? local.tags_autoscaler : {})
 
   policy = jsonencode({
     "Version" : "2012-10-17",
@@ -395,50 +284,69 @@ resource "aws_eks_addon" "create_others_addons" {
   tags                        = var.eks_addons[count.index].tags
 }
 
-data "aws_eks_cluster" "cluster" {
-  count = var.manage_aws_auth ? 1 : 0
+# ----------------------------------------------------------------#
+# EKS Access Entries (Replaces aws-auth)
+# ----------------------------------------------------------------#
 
-  name = aws_eks_cluster.create_eks_cluster.id
+resource "aws_eks_access_entry" "node_group" {
+  count         = var.manage_aws_auth ? 1 : 0
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = aws_iam_role.create_eks_nodes_roles.arn
+  type          = "EC2_LINUX"
 }
 
-data "aws_eks_cluster_auth" "cluster" {
-  count = var.manage_aws_auth ? 1 : 0
-
-  name = aws_eks_cluster.create_eks_cluster.id
+# Access entries for roles (custom managed users from terraform inputs)
+resource "aws_eks_access_entry" "roles" {
+  for_each      = var.manage_aws_auth ? { for role in var.map_roles : role.rolearn => role } : {}
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = each.value.rolearn
+  user_name     = try(each.value.username, null)
+  type          = "STANDARD"
 }
 
-provider "kubernetes" {
-  host                   = var.manage_aws_auth ? data.aws_eks_cluster.cluster[0].endpoint : ""
-  cluster_ca_certificate = var.manage_aws_auth ? base64decode(data.aws_eks_cluster.cluster[0].certificate_authority[0].data) : ""
-  token                  = var.manage_aws_auth ? data.aws_eks_cluster_auth.cluster[0].token : ""
-}
-
-resource "kubernetes_config_map_v1_data" "aws_auth" {
-  count = var.manage_aws_auth ? 1 : 0
-
-  force = true
-
-  metadata {
-    name      = "aws-auth"
-    namespace = "kube-system"
+resource "aws_eks_access_policy_association" "roles_admin" {
+  for_each      = var.manage_aws_auth ? { for role in var.map_roles : role.rolearn => role if contains(role.groups, "system:masters") } : {}
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = aws_eks_access_entry.roles[each.key].principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope {
+    type = "cluster"
   }
+}
 
-  data = {
-    mapRoles = yamlencode(
-      distinct(concat(
-        [{
-          rolearn  = aws_iam_role.create_eks_nodes_roles.arn
-          username = "system:node:{{EC2PrivateDNSName}}"
-          groups   = ["system:bootstrappers", "system:nodes"]
-        }],
-        distinct(var.map_roles),
-      ))
-    )
-    mapUsers    = yamlencode(distinct(var.map_users))
-    mapAccounts = yamlencode(distinct(var.map_accounts))
+# Access entries for users
+resource "aws_eks_access_entry" "users" {
+  for_each      = var.manage_aws_auth ? { for user in var.map_users : user.userarn => user } : {}
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = each.value.userarn
+  user_name     = try(each.value.username, null)
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "users_admin" {
+  for_each      = var.manage_aws_auth ? { for user in var.map_users : user.userarn => user if contains(user.groups, "system:masters") } : {}
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = aws_eks_access_entry.users[each.key].principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope {
+    type = "cluster"
   }
+}
 
-  depends_on = [
-    aws_eks_node_group.create_eks_nodes_groups
-  ]
+# Access entries for accounts (Legacy support for account root delegation)
+resource "aws_eks_access_entry" "accounts" {
+  for_each      = var.manage_aws_auth ? toset(var.map_accounts) : toset([])
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = "arn:aws:iam::${each.value}:root"
+  type          = "STANDARD"
+}
+
+resource "aws_eks_access_policy_association" "accounts_admin" {
+  for_each      = var.manage_aws_auth ? toset(var.map_accounts) : toset([])
+  cluster_name  = aws_eks_cluster.create_eks_cluster.name
+  principal_arn = aws_eks_access_entry.accounts[each.value].principal_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  access_scope {
+    type = "cluster"
+  }
 }

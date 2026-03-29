@@ -29,6 +29,10 @@ output "cloudwatch_log_group" {
   value = try(aws_cloudwatch_log_group.create_cloudwatch_log_group, null)
 }
 
+output "kms_key_secrets_arn" {
+  value = try(aws_kms_key.eks_secrets[0].arn, null)
+}
+
 # ----------------------------------------------------------------#
 # New network
 # ----------------------------------------------------------------#
@@ -91,7 +95,7 @@ output "eks_nodes_roles" {
 # Autoscaler, EBS Driver and User Managment
 # ----------------------------------------------------------------#
 output "autoscaler_policy" {
-  value = try(aws_iam_policy.create_autoscaler_policy, null)
+  value = try(aws_iam_policy.create_desired_terminate_scaling_policy, null)
 }
 
 output "oidc_identity_provider" {
@@ -114,6 +118,9 @@ output "eks_addons" {
   value = try(concat(aws_eks_addon.create_ebs_addon, aws_eks_addon.create_others_addons), null)
 }
 
-output "aws_auth" {
-  value = try(kubernetes_config_map_v1_data.aws_auth, null)
+output "aws_auth_access_entries" {
+  value = {
+    roles = try(aws_eks_access_entry.roles, null)
+    users = try(aws_eks_access_entry.users, null)
+  }
 }

@@ -24,7 +24,7 @@ terraform {
 }
 ```
 
-* Criate file provider.tf with the exemple code below:
+* Create file provider.tf with the exemple code below:
 ```hcl
 provider "aws" {
   alias   = "alias_profile_a"
@@ -60,13 +60,16 @@ URL file: https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster
 * Full documentation url: 
 https://docs.aws.amazon.com/pt_br/eks/latest/userguide/cluster-autoscaler.html
 
+> **Karpenter vs Cluster Autoscaler Note:**
+> This module natively provisions IAM roles and policies for the classic **Cluster Autoscaler** (`tf-amazon-eks-cluster-autoscaler-role`). However, Node Groups and Security Groups receive `karpenter.sh/discovery` tags to ease migration to Karpenter. Se a intenção for usar o Karpenter, será necessário criar o *KarpenterNodeRole* e mapeá-lo manualmente ou via `map_roles`.
+
 ### Create cluster with existing network
 
 ```hcl
 module "eks_compute_dev" {
   source           = "web-virtua-aws-multi-account-modules/eks/aws"
   cluster_name     = "tf-cluster-k8s"
-  k8s_version      = "1.24"
+  k8s_version      = "1.35"
   vpc_id           = var.vpc_id
   subnet_ids       = var.privete_subnets_ids
   node_pools       = var.node_pools
@@ -78,30 +81,24 @@ module "eks_compute_dev" {
 }
 ```
 
-### Create cluster with existing network and managment users and roles RBAC
+### Create cluster with existing network and management users and roles RBAC
+
+> **BEST PRACTICE (2024/2026):** It is highly recommended to **avoid** mapping individual users through `map_users`. Instead, use `map_roles` to map a central IAM Role (e.g. `arn:aws:iam::123:role/eks-developer-role`), and allow your IAM Users to assume those roles via IAM Groups or AWS SSO. This strategy avoids updating your Terraform codebase every time a developer joins or leaves the team.
 
 ```hcl
 module "eks_compute_dev" {
   source           = "web-virtua-aws-multi-account-modules/eks/aws"
   cluster_name     = "tf-cluster-k8s"
-  k8s_version      = "1.24"
+  k8s_version      = "1.35"
   vpc_id           = var.vpc_id
   subnet_ids       = var.privete_subnets_ids
   node_pools       = var.node_pools
   ou_name          = var.ous.sso
 
-  map_users = [
-    {
-      userarn  = "arn:aws:iam::123456789:user/user.name"
-      username = "user.name"
-      groups   = ["system:masters"]
-    },
-  ]
-
   map_roles = [
     {
-      rolearn  = "arn:aws:iam::123456789:role/role.name"
-      username = "role.name"
+      rolearn  = "arn:aws:iam::123456789:role/eks-developer-role"
+      username = "eks-developer-role"
       groups = [
         "system:masters"
       ]
@@ -121,7 +118,7 @@ module "eks_compute_dev" {
   source           = "web-virtua-aws-multi-account-modules/eks/aws"
   make_new_network = true
   cluster_name     = "tf-cluster-k8s"
-  k8s_version      = "1.24"
+  k8s_version      = "1.35"
   node_pools       = var.node_pools
 
   providers = {
@@ -138,7 +135,7 @@ module "eks_compute_dev" {
 | vpc_id | `string` | `null` | no | Cluster VPC ID, It's required if make_new_network set false | `-` |
 | subnet_ids | `list(string)` | `null` | no | List with subnets IDs to cluster, It's required if make_new_network set false | `-` |
 | security_groups_ids | `list(string)` | `null` | no | List with security groups IDs to cluster | `-`|
-| k8s_version | `string` | `1.24` | no | Kuberntes version | `-` |
+| k8s_version | `string` | `1.35` | no | Kuberntes version | `-` |
 | cluster_environment | `string` | `prod` | no | Cluster environment, ex: prod, dev... | `-` |
 | key_pair_name_ssh_nodes_access | `string` | `null` | no | Key pair name to SSH nodes access | `-` |
 | security_groups_ids_ssh_nodes_access | `list(string)` | `null` | no | Security groups ID's to access SSH | `-`|
@@ -155,15 +152,21 @@ module "eks_compute_dev" {
 | eks_timeouts | `map(object)` | `object` | no | Define cluster timeouts | `-`|
 | use_tags_default | `bool` | `true` | no | If true will be use the tags default | `*`true<br> `*`false |
 | tags_autoscaler | `map(any)` | `object` | no | Tags to autocaler policy | `-`|
+| role_policy_metrics_cusmized_name | `string` | `null` | no | Name customization for IAM roles, policies and resources (useful for multiple clusters) | `-` |
 | manage_aws_auth | `bool` | `true` | no | If true will be management aws auth, else will be create the basic access to user the created the cluster | `*`true<br> `*`false |
 | make_policy_role_provider_autoscaler | `bool` | `true` | no | If true will be create a policy, role and identity provider to allow autocaler on cluster | `*`true<br> `*`false |
 | make_role_ebs_csi_driver | `bool` | `true` | no | If true will be create a role to allow EBS CSI driver on cluster | `*`true<br> `*`false |
 | eks_addons | `list(object)` | `[]` | no | List with additional addons to enable on cluster | `-`|
-| map_users | `list(object)` | `[]` | no | Additional IAM users to add to the aws-auth configmap | `-`|
-| map_roles | `list(object)` | `[]` | no | Additional IAM roles to add to the aws-auth configmap | `-`|
-| map_accounts | `list(string)` | `[]` | no | Additional AWS account numbers to add to the aws-auth configmap | `-`|
+| ebs_addon_version | `string` | `null` | no | Sets the EBS CSI driver addon version | `-`|
+| enable_kms_secrets | `bool` | `false` | no | If true, creates KMS key to encrypt Kubernetes Secrets within the cluster | `*`true<br> `*`false |
+| kms_secrets_deletion_window | `number` | `7` | no | Waiting period in days before the KMS key is deleted if enable_kms_secrets is true | `-` |
+| map_users | `list(object)` | `[]` | no | Additional IAM users to map via native EKS Access Entries | `-`|
+| map_roles | `list(object)` | `[]` | no | Additional IAM roles to map via native EKS Access Entries | `-`|
+| map_accounts | `list(string)` | `[]` | no | Additional AWS account numbers to grant EKS Access Entries | `-`|
 | identity_provider_audiences | `list(string)` | `["sts.amazonaws.com"]` | no | List with to specify the client ID issued by the Identity provider for your app, ex: sts.amazonaws.com | `-`|
-| cluster_autoscaler_policy | `list(object)` | `object` | no | Cluster autoscaler policy | `-`|
+
+| kms_key_administrators | `list(string)` | `[]` | no | List of IAM ARNs to grant Administrator access to the KMS key | `-`|
+| kms_key_users | `list(string)` | `[]` | no | List of IAM ARNs to grant Usage access to the KMS key (encrypt/decrypt) | `-`|
 
 * Examples of object populated by default in the eks_timeouts variable
 ```hcl
@@ -206,7 +209,7 @@ variable "eks_addons" {
 * Examples to map_users variable
 ```hcl
 variable "map_users" {
-  description = "Additional IAM users to add to the aws-auth configmap"
+  description = "Additional IAM users to map via native EKS Access Entries (Not recommended, use map_roles instead)"
   type = list(object({
     userarn  = string
     username = string
@@ -225,7 +228,7 @@ variable "map_users" {
 * Examples to map_roles variable
 ```hcl
 variable "map_roles" {
-  description = "Additional IAM roles to add to the aws-auth configmap"
+  description = "Additional IAM roles to map via native EKS Access Entries"
   type = list(object({
     rolearn  = string
     username = string
@@ -246,7 +249,7 @@ variable "map_roles" {
 * Examples to map_accounts variable
 ```hcl
 variable "map_accounts" {
-  description = "Additional AWS account numbers to add to the aws-auth configmap"
+  description = "Additional AWS account numbers to grant native EKS Access Entries"
   type        = list(string)
   default     = [
     "123456789"
@@ -262,42 +265,6 @@ variable "identity_provider_audiences" {
   default     = ["sts.amazonaws.com"]
 }
 ```
-
-* Examples to cluster_autoscaler_policy variable
-```hcl
-variable "cluster_autoscaler_policy" {
-  description = "Cluster autoscaler policy"
-  type = object({
-    name        = string
-    policy      = any
-    path        = optional(string)
-    description = optional(string)
-  })
-  default = {
-    name        = "AmazonEKSClusterAutoscalerPolicy"
-    description = "Policy to autoscaling on EKS."
-    policy = {
-      "Version" : "2012-10-17",
-      "Statement" : [
-        {
-          "Action" : [
-            "autoscaling:DescribeAutoScalingGroups",
-            "autoscaling:DescribeAutoScalingInstances",
-            "autoscaling:DescribeLaunchConfigurations",
-            "autoscaling:DescribeTags",
-            "autoscaling:SetDesiredCapacity",
-            "autoscaling:TerminateInstanceInAutoScalingGroup",
-            "ec2:DescribeLaunchTemplateVersions"
-          ],
-          "Resource" : "*",
-          "Effect" : "Allow"
-        }
-      ]
-    }
-  }
-}
-```
-
 
 ## Network Variables
 
@@ -394,9 +361,9 @@ variable "default_cpu_scaling_configuration" {
 
 
 variable "nodes_ami_type" {
-  description = "Node ami type, can be AL2_x86_64, AL2_x86_64_GPU, AL2_ARM_64, CUSTOM, BOTTLEROCKET_ARM_64, BOTTLEROCKET_x86_64, BOTTLEROCKET_ARM_64_NVIDIA or BOTTLEROCKET_x86_64_NVIDIA"
+  description = "Node ami type, can be AL2_x86_64, AL2023_x86_64_STANDARD, AL2_x86_64_GPU, AL2_ARM_64, CUSTOM, BOTTLEROCKET_ARM_64, BOTTLEROCKET_x86_64, BOTTLEROCKET_ARM_64_NVIDIA or BOTTLEROCKET_x86_64_NVIDIA"
   type        = list(string)
-  default     = null
+  default     = ["AL2023_x86_64_STANDARD"]
 }
 
 
@@ -491,7 +458,7 @@ variable "node_pools" {
   default = [
     {
       node_group_name  = "tf-node-pool-demand-1",
-      eks_node_version = "1.23",
+      eks_node_version = "1.35",
       disk_size        = 25,
       subnet_ids = [
         "subnet-05c6c...a4082",
@@ -529,25 +496,22 @@ variable "node_pools" {
 | [aws_eks_node_group.create_eks_nodes_groups](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_node_group) | resource |
 | [aws_iam_role.create_eks_cluster_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_eks_cluster_policy_on_eks_cluste_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.create_attach_eks_service_policy_on_eks_cluste_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_policy.create_lb_controller_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [data.http.aws_load_balancer_controller_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/http) | data source |
 | [aws_iam_role_policy_attachment.create_attach_lb_controller_policy_on_eks_cluste_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.create_eks_nodes_roles](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_eks_cni_policy_on_eks_nodes_roles](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_eks_worker_node_policy_on_eks_nodes_roles](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy_attachment.create_attach_ec2_ecr_policy_on_eks_nodes_roles](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_autoscaling_policy.create_scaling_cpu_up_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_policy) | resource |
-| [aws_cloudwatch_metric_alarm.create_metric_cpu_up_alarm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_autoscaling_policy.create_scaling_cpu_down_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_policy) | resource |
-| [aws_cloudwatch_metric_alarm.create_metric_cpu_down_alarm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_metric_alarm) | resource |
-| [aws_iam_policy.create_autoscaler_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+
 | [aws_iam_openid_connect_provider.create_oidc_identity_provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_openid_connect_provider) | resource |
 | [aws_iam_role.create_autoscaler_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy_attachment.create_attach_autoscaler_role_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_policy.create_desired_terminate_scaling_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_role_policy_attachment.create_attach_desired_terminate_scaler_policy_on_iam_autoscaler_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.create_ebs_management_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_eks_addon.create_ebs_addon](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
 | [aws_eks_addon.create_others_addons](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_addon) | resource |
-| [kubernetes_config_map_v1_data.aws_auth](https://registry.terraform.io/providers/hashicorp/kubernetes/latest/docs/resources/config_map_v1_data) | resource |
+| [aws_eks_access_entry](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eks_access_entry) | resource |
 | [aws_autoscaling_group_tag.create_nodes_autoscaler_label_tags](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/autoscaling_group_tag) | resource |
 
 
@@ -560,7 +524,9 @@ variable "node_pools" {
 | `eks_security_group_internal` | All informations of the EKS cluster security group internal |
 | `eks_endpoint` | EKS cluster endpoint |
 | `eks_kubeconfig_certificate_authority_data` | EKS eks kubeconfig certificate authority data|
-| `cloudwatch_log_group` | All informations of the EKS cloudwathc log group |
+| `kms_key_secrets_arn` | ARN of the KMS Key created to encrypt Kubernetes Secrets |
+| `cloudwatch_log_group` | All informations of the EKS cloudwatch log group |
+| `kms_key_secrets` | All informations of the KMS Key created to encrypt Kubernetes Secrets |
 | `vpc_new` | All informations of the new network|
 | `vpc_new_id` | VPC ID of the new network|
 | `vpc_new_internet_gateway` | Internet gateway of the new network|
@@ -570,17 +536,14 @@ variable "node_pools" {
 | `vpc_new_public_subnets_ids` | Public subnets ID's of the new network|
 | `eks_nodes_groups` | All informations of the EKS nodes groups |
 | `eks_cluster_role` | All informations of the EKS cluster role |
-| `lb_controller_policy` | All informations of the EKS load balance controller poliby|
+| `lb_controller_policy` | All informations of the EKS load balance controller policy |
 | `eks_nodes_roles` | All informations of the EKS nodes roles |
-| `scaling_cpu_up_policy` | All informations of the EKS scaling CPU up policy |
-| `scaling_cpu_down_policy` | All informations of the EKS scaling CPU down policy |
-| `metric_cpu_up_alarm` | All informations of the EKS metric CPU up cloudwatch alarm |
-| `metric_cpu_down_alarm` | All informations of the EKS metric CPU down cloudwatch alarm |
+
 | `autoscaler_policy` | Policy to autoscaler |
 | `oidc_identity_provider` | OIDC identity provider |
 | `iam_autoscaler_role` | Role to autoscaler |
 | `iam_autoscaler_role_arn` | Role ARN to autoscaler, this role will be used in autoscaler cluster configuration file |
 | `ebs_management_role` | Role to EBS managment |
 | `eks_addons` | EKS addons |
-| `aws_auth` | AWS authorization on cluster |
+| `aws_auth_access_entries` | AWS API authorization outputs on cluster (EKS Access Entries) |
 | `nodes_autoscaler_label_tags` | Nodes autoscaler label tags to VMs |
